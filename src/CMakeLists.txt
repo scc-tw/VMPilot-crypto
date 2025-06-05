@@ -18,11 +18,11 @@ function(add_blake3)
     endif()
 
     # Instead of add_library, use add_library with IMPORTED STATIC option to specify static linking.
-    add_library(black3_staticlib STATIC IMPORTED)
-    set_target_properties(black3_staticlib PROPERTIES IMPORTED_LOCATION ${BLAKE3_LIBRARY})
+    add_library(blake3_staticlib STATIC IMPORTED)
+    set_target_properties(blake3_staticlib PROPERTIES IMPORTED_LOCATION ${BLAKE3_LIBRARY})
 
     set(INCLUDE_DIRS ${INCLUDE_DIRS} ${BLAKE3_INCLUDE_DIR} PARENT_SCOPE)
-    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} black3_staticlib PARENT_SCOPE)  # Use target name here instead of library path
+    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} blake3_staticlib PARENT_SCOPE)  # Use target name here instead of library path
 endfunction(add_blake3)
 
 function(add_botan)
