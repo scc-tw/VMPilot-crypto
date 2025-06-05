@@ -11,14 +11,16 @@ std::vector<uint8_t> VMPilot::Crypto::Encrypt_AES_256_CBC_PKCS7(
                                              Botan::Cipher_Dir::Encryption);
 
     cipher->set_key(reinterpret_cast<const uint8_t *>(key.data()), key.size());
-    cipher->start(reinterpret_cast<const uint8_t *>(data.data()), data.size());
 
-    Botan::secure_vector<uint8_t> encrypted_data(data.size());
-    cipher->finish(encrypted_data, encrypted_data.size());
+    const std::vector<uint8_t> iv(cipher->default_nonce_length(), 0);
+    cipher->start(iv.data(), iv.size());
+
+    Botan::secure_vector<uint8_t> buffer(data.begin(), data.end());
+    cipher->finish(buffer);
 
     std::vector<uint8_t> result;
-    result.reserve(encrypted_data.size());
-    std::copy(encrypted_data.begin(), encrypted_data.end(),
+    result.reserve(buffer.size());
+    std::copy(buffer.begin(), buffer.end(),
               std::back_inserter(result));
 
     return result;
@@ -32,13 +34,16 @@ std::vector<uint8_t> VMPilot::Crypto::Decrypt_AES_256_CBC_PKCS7(
     auto cipher = Botan::Cipher_Mode::create("AES-256/CBC/PKCS7",
                                              Botan::Cipher_Dir::Decryption);
     cipher->set_key(reinterpret_cast<const uint8_t *>(key.data()), key.size());
-    cipher->start(reinterpret_cast<const uint8_t *>(data.data()), data.size());
-    Botan::secure_vector<uint8_t> decrypted_data(data.size());
-    cipher->finish(decrypted_data, decrypted_data.size());
+
+    const std::vector<uint8_t> iv(cipher->default_nonce_length(), 0);
+    cipher->start(iv.data(), iv.size());
+
+    Botan::secure_vector<uint8_t> buffer(data.begin(), data.end());
+    cipher->finish(buffer);
 
     std::vector<uint8_t> result;
-    result.reserve(decrypted_data.size());
-    std::copy(decrypted_data.begin(), decrypted_data.end(),
+    result.reserve(buffer.size());
+    std::copy(buffer.begin(), buffer.end(),
               std::back_inserter(result));
 
     return result;

@@ -1,33 +1,43 @@
-set(CPM_DOWNLOAD_VERSION 0.38.2)
+include(FetchContent)
 
-if(CPM_SOURCE_CACHE)
-  set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
-elseif(DEFINED ENV{CPM_SOURCE_CACHE})
-  set(CPM_DOWNLOAD_LOCATION "$ENV{CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
-else()
-  set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
-endif()
+function(CPMAddPackage)
+    set(options)
+    set(oneValueArgs NAME GITHUB_REPOSITORY GIT_TAG VERSION SOURCE_DIR)
+    set(multiValueArgs GIT_SUBMODULES DOWNLOAD_COMMAND PATCH_COMMAND)
+    cmake_parse_arguments(CPM "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
-# Expand relative path. This is important if the provided path contains a tilde (~)
-get_filename_component(CPM_DOWNLOAD_LOCATION ${CPM_DOWNLOAD_LOCATION} ABSOLUTE)
+    if(NOT CPM_NAME)
+        message(FATAL_ERROR "CPMAddPackage requires NAME")
+    endif()
 
-function(download_cpm)
-  message(STATUS "Downloading CPM.cmake to ${CPM_DOWNLOAD_LOCATION}")
-  file(DOWNLOAD
-       https://github.com/cpm-cmake/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake
-       ${CPM_DOWNLOAD_LOCATION}
-  )
+    if(CPM_SOURCE_DIR)
+        add_subdirectory(${CPM_SOURCE_DIR} ${CPM_NAME})
+        return()
+    endif()
+
+    if(CPM_GITHUB_REPOSITORY)
+        set(repo_url https://github.com/${CPM_GITHUB_REPOSITORY}.git)
+    else()
+        message(FATAL_ERROR "CPMAddPackage requires GITHUB_REPOSITORY when SOURCE_DIR is not given")
+    endif()
+
+    if(CPM_GIT_TAG)
+        set(tag ${CPM_GIT_TAG})
+    elseif(CPM_VERSION)
+        set(tag ${CPM_VERSION})
+    else()
+        message(FATAL_ERROR "CPMAddPackage requires GIT_TAG or VERSION")
+    endif()
+
+    FetchContent_Declare(
+        ${CPM_NAME}
+        GIT_REPOSITORY ${repo_url}
+        GIT_TAG ${tag}
+        GIT_SHALLOW TRUE
+        GIT_SUBMODULES ${CPM_GIT_SUBMODULES}
+        DOWNLOAD_COMMAND "${CPM_DOWNLOAD_COMMAND}"
+        PATCH_COMMAND "${CPM_PATCH_COMMAND}"
+    )
+
+    FetchContent_MakeAvailable(${CPM_NAME})
 endfunction()
-
-if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
-  download_cpm()
-else()
-  # resume download if it previously failed
-  file(READ ${CPM_DOWNLOAD_LOCATION} check)
-  if("${check}" STREQUAL "")
-    download_cpm()
-  endif()
-  unset(check)
-endif()
-
-include(${CPM_DOWNLOAD_LOCATION})
