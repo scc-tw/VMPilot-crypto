@@ -5,24 +5,14 @@ if(NOT CRYPTO_LIB)
 endif()
 
 function(add_blake3)
-    CPMAddPackage(
-        NAME BLAKE3-cmake
-        GITHUB_REPOSITORY 25077667/BLAKE3-cmake
-        GIT_TAG 1.4.0
-    )
-    set(BLAKE3_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/blake3-src/c/)
-    if(MSVC)
-        set(BLAKE3_LIBRARY ${CMAKE_BINARY_DIR}/_deps/blake3-build/blake3.lib)
-    else()
-        set(BLAKE3_LIBRARY ${CMAKE_BINARY_DIR}/_deps/blake3-build/libblake3.a)
-    endif()
+    # Use local BLAKE3 submodule (third_party/BLAKE3)
+    set(BLAKE3_SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/BLAKE3/c)
 
-    # Instead of add_library, use add_library with IMPORTED STATIC option to specify static linking.
-    add_library(blake3_staticlib STATIC IMPORTED)
-    set_target_properties(blake3_staticlib PROPERTIES IMPORTED_LOCATION ${BLAKE3_LIBRARY})
+    # Add BLAKE3 as subdirectory
+    add_subdirectory(${BLAKE3_SOURCE_DIR} ${CMAKE_BINARY_DIR}/blake3-build EXCLUDE_FROM_ALL)
 
-    set(INCLUDE_DIRS ${INCLUDE_DIRS} ${BLAKE3_INCLUDE_DIR} PARENT_SCOPE)
-    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} blake3_staticlib PARENT_SCOPE)  # Use target name here instead of library path
+    set(INCLUDE_DIRS ${INCLUDE_DIRS} ${BLAKE3_SOURCE_DIR} PARENT_SCOPE)
+    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} blake3 PARENT_SCOPE)
 endfunction(add_blake3)
 
 function(add_botan)
