@@ -4,6 +4,9 @@
 #include <botan/hash.h>
 #include <botan/hex.h>
 
+#include <algorithm>
+#include <iterator>
+
 std::vector<uint8_t> VMPilot::Crypto::Encrypt_AES_256_CBC_PKCS7(
     const std::vector<uint8_t> &data, const std::string &key) noexcept
 {

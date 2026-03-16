@@ -17,7 +17,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"
 endif ()
 
 if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-    add_compile_options(/W4 /WX /Od /Zi /EHsc /MTd)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W4 /WX /Od /Zi /EHsc")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4 /WX /Od /Zi /EHsc")
 endif ()
 
 include(cmake/CPM.cmake)
