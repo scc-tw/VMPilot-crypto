@@ -53,7 +53,11 @@ function(add_botan)
 
     if(MSVC)
         list(APPEND BOTAN_CONFIGURE_ARGS --cc=msvc)
-        if(CMAKE_BUILD_TYPE MATCHES "Debug")
+        # Multi-config generators (Visual Studio) don't set CMAKE_BUILD_TYPE
+        # at configure time. Check both the variable and the generator type.
+        if(CMAKE_BUILD_TYPE MATCHES "Debug" OR
+           (NOT CMAKE_BUILD_TYPE AND CMAKE_CONFIGURATION_TYPES))
+            # Default to Debug for multi-config generators (matches --config Debug)
             list(APPEND BOTAN_CONFIGURE_ARGS --debug-mode --msvc-runtime=MDd)
         else()
             list(APPEND BOTAN_CONFIGURE_ARGS --msvc-runtime=MD)
