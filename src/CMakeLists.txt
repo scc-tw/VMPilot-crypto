@@ -98,6 +98,12 @@ function(add_botan)
         CONFIGURE_COMMAND python3 ${BOTAN_SOURCE_DIR}/configure.py ${BOTAN_CONFIGURE_ARGS}
         BUILD_COMMAND ${BOTAN_BUILD_COMMAND}
         INSTALL_COMMAND ${BOTAN_INSTALL_COMMAND}
+        # Redirect to log files: Botan's Ninja build emits MSVC /showIncludes
+        # lines that Ninja cannot filter on non-English locales, flooding the
+        # console with thousands of "注意: 包含檔案:" lines.
+        LOG_CONFIGURE ON
+        LOG_BUILD ON
+        LOG_INSTALL ON
         BUILD_BYPRODUCTS
             ${BOTAN_INSTALL_DIR}/lib/botan-3.lib
             ${BOTAN_INSTALL_DIR}/lib/libbotan-3.a
