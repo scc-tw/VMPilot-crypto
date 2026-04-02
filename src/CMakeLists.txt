@@ -63,6 +63,13 @@ function(add_botan)
             list(APPEND BOTAN_CONFIGURE_ARGS --msvc-runtime=MD)
         endif()
 
+        # ASan: Botan is built via ExternalProject (separate process), so the
+        # global add_compile_options(/fsanitize=address) does not reach it.
+        # Pass it via --extra-cxxflags to keep annotate_string metadata consistent.
+        if(VMPILOT_ENABLE_SANITIZERS)
+            list(APPEND BOTAN_CONFIGURE_ARGS "--extra-cxxflags=/fsanitize=address")
+        endif()
+
         # Use ninja if available, otherwise nmake
         find_program(NINJA_EXECUTABLE ninja)
         if(NINJA_EXECUTABLE)
