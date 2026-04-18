@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 # Setup default variables
 # Set default values for compile options
 set(CRYPTO_LIB "Botan" CACHE STRING "The backend crypto library")
-set_property(CACHE CRYPTO_LIB PROPERTY STRINGS "Botan" "OpenSSL" "libsodium")
+set_property(CACHE CRYPTO_LIB PROPERTY STRINGS "Botan" "OpenSSL" "libsodium" "CryptoPP")
 
 set(CMAKE_LINKER "ld" CACHE STRING "The linker")
 set_property(CACHE CMAKE_LINKER PROPERTY STRINGS "ld" "mold" "lld" "gold")

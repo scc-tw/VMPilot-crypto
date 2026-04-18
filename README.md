@@ -2,11 +2,12 @@ VMPilot-crypto
 ===
 
 The crypto submodule of VMPilot.
-We provide two 3-rd party crypto library as the backend of VMPilot-crypto.
+We provide multiple 3-rd party crypto libraries as the backend of VMPilot-crypto.
 
 - [Botan](https://github.com/randombit/botan)
 - [libsodium](https://github.com/jedisct1/libsodium)
 - [OpenSSL](https://github.com/openssl/openssl)
+- [Crypto++](https://github.com/weidai11/cryptopp)
 
 # Release
 Please refer to the [release page](https://github.com/25077667/VMPilot-crypto/releases)
@@ -22,11 +23,12 @@ Please refer to the [release page](https://github.com/25077667/VMPilot-crypto/re
 
 ## Compile Options
 - `CRYPTO_LIB`: 
-    - Description: The backend crypto library. Default is `Botan`. Other options are `OpenSSL` and `libsodium`.
+    - Description: The backend crypto library. Default is `Botan`. Other options are `OpenSSL`, `libsodium`, and `CryptoPP`.
     - Options:
         - `Botan` (default)
         - `OpenSSL`
         - `libsodium` (partial: SHA256 + Ed25519; AES-256-CBC/PKCS7 unsupported)
+        - `CryptoPP`
 
 - `CMAKE_LINKER`: 
     - Description: The linker. Default is `ld`. Other options are `mold`, `lld` and `gold`.
@@ -60,6 +62,11 @@ The libsodium backend currently supports the SHA256 and Ed25519 parts of the pub
 The AES wrapper API in this repo is `AES-256-CBC/PKCS7`, which libsodium does not provide;
 its AES support is limited to AES-256-GCM AEAD. As a result, the libsodium backend does not
 provide AES parity with the Botan/OpenSSL backends.
+
+## CryptoPP
+The CryptoPP backend uses the official Crypto++ source tree. If `third_party/cryptopp` is
+present, it is used directly as the vendored source; otherwise CMake fetches the official
+Crypto++ 8.9.0 source release and builds a local static target for the backend.
 
 ## Botan with AppleClang
 If it says something like this:

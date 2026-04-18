@@ -157,6 +157,132 @@ function(add_openssl)
     set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} ${OPENSSL_LIBRARIES} PARENT_SCOPE)
 endfunction(add_openssl)
 
+function(create_cryptopp_vendor_target CRYPTOPP_SOURCE_DIR)
+    file(GLOB CRYPTOPP_CPP_FILES CONFIGURE_DEPENDS "${CRYPTOPP_SOURCE_DIR}/*.cpp")
+    list(FILTER CRYPTOPP_CPP_FILES EXCLUDE REGEX ".*/(bench1|bench2|bench3|datatest|dlltest|fipsalgt|regtest1|regtest2|regtest3|regtest4|test|validat[0-9]+|pch|simple)\\.cpp$")
+    list(REMOVE_ITEM CRYPTOPP_CPP_FILES
+         "${CRYPTOPP_SOURCE_DIR}/cryptlib.cpp"
+         "${CRYPTOPP_SOURCE_DIR}/cpu.cpp"
+         "${CRYPTOPP_SOURCE_DIR}/integer.cpp")
+
+    set(CRYPTOPP_SOURCE_FILES
+        "${CRYPTOPP_SOURCE_DIR}/cryptlib.cpp"
+        "${CRYPTOPP_SOURCE_DIR}/cpu.cpp"
+        "${CRYPTOPP_SOURCE_DIR}/integer.cpp"
+        ${CRYPTOPP_CPP_FILES}
+    )
+
+    set(CRYPTOPP_ASM_OBJECTS)
+    if(MSVC)
+        enable_language(ASM_MASM)
+        set(CRYPTOPP_ASM_OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/cryptopp-asm")
+
+        if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            set(RDRAND_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/rdrand-x64.obj")
+            set(RDSEED_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/rdseed-x64.obj")
+            set(X64DLL_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/x64dll.obj")
+            set(X64MASM_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/x64masm.obj")
+
+            add_custom_command(
+                OUTPUT "${RDRAND_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X64 /W3 /Zi "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${RDRAND_OBJ}" "${CRYPTOPP_SOURCE_DIR}/rdrand.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/rdrand.asm"
+                VERBATIM)
+            add_custom_command(
+                OUTPUT "${RDSEED_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X64 /W3 /Zi "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${RDSEED_OBJ}" "${CRYPTOPP_SOURCE_DIR}/rdseed.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/rdseed.asm"
+                VERBATIM)
+            add_custom_command(
+                OUTPUT "${X64DLL_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X64 /W3 /Zi "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${X64DLL_OBJ}" "${CRYPTOPP_SOURCE_DIR}/x64dll.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/x64dll.asm"
+                VERBATIM)
+            add_custom_command(
+                OUTPUT "${X64MASM_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X64 /W3 /Zi "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${X64MASM_OBJ}" "${CRYPTOPP_SOURCE_DIR}/x64masm.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/x64masm.asm"
+                VERBATIM)
+
+            list(APPEND CRYPTOPP_ASM_OBJECTS
+                 "${RDRAND_OBJ}"
+                 "${RDSEED_OBJ}"
+                 "${X64DLL_OBJ}"
+                 "${X64MASM_OBJ}")
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            set(RDRAND_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/rdrand-x86.obj")
+            set(RDSEED_OBJ "${CRYPTOPP_ASM_OUTPUT_DIR}/rdseed-x86.obj")
+
+            add_custom_command(
+                OUTPUT "${RDRAND_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X86 /W3 /Zi /safeseh "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${RDRAND_OBJ}" "${CRYPTOPP_SOURCE_DIR}/rdrand.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/rdrand.asm"
+                VERBATIM)
+            add_custom_command(
+                OUTPUT "${RDSEED_OBJ}"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "${CRYPTOPP_ASM_OUTPUT_DIR}"
+                COMMAND "${CMAKE_ASM_MASM_COMPILER}" /c /nologo /D_M_X86 /W3 /Zi /safeseh "/I${CRYPTOPP_SOURCE_DIR}" "/Fo${RDSEED_OBJ}" "${CRYPTOPP_SOURCE_DIR}/rdseed.asm"
+                DEPENDS "${CRYPTOPP_SOURCE_DIR}/rdseed.asm"
+                VERBATIM)
+
+            list(APPEND CRYPTOPP_ASM_OBJECTS
+                 "${RDRAND_OBJ}"
+                 "${RDSEED_OBJ}")
+        endif()
+
+        foreach(CRYPTOPP_ASM_OBJECT IN LISTS CRYPTOPP_ASM_OBJECTS)
+            set_source_files_properties(${CRYPTOPP_ASM_OBJECT} PROPERTIES EXTERNAL_OBJECT TRUE GENERATED TRUE)
+        endforeach()
+    endif()
+
+    add_library(cryptopp_vendor STATIC ${CRYPTOPP_SOURCE_FILES} ${CRYPTOPP_ASM_OBJECTS})
+    target_include_directories(cryptopp_vendor PUBLIC "${CRYPTOPP_SOURCE_DIR}")
+    target_compile_definitions(cryptopp_vendor PUBLIC
+        _SILENCE_STDEXT_ARR_ITERS_DEPRECATION_WARNING
+        $<$<NOT:$<CONFIG:Debug>>:NDEBUG>)
+
+    if(MSVC)
+        target_compile_options(cryptopp_vendor PRIVATE
+            $<$<COMPILE_LANGUAGE:C>:/WX-;/W0>
+            $<$<COMPILE_LANGUAGE:CXX>:/WX-;/W0>)
+    else()
+        target_compile_options(cryptopp_vendor PRIVATE
+            $<$<COMPILE_LANGUAGE:C>:-w;-Wno-error>
+            $<$<COMPILE_LANGUAGE:CXX>:-w;-Wno-error>)
+    endif()
+endfunction()
+
+function(add_cryptopp)
+    set(SOURCE_FILES cryptopp.cpp PARENT_SCOPE)
+
+    set(CRYPTOPP_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/cryptopp)
+    if(NOT EXISTS ${CRYPTOPP_SOURCE_DIR}/cryptlib.cpp)
+        CPMAddPackage(
+            NAME cryptopp
+            GITHUB_REPOSITORY weidai11/cryptopp
+            GIT_TAG 843d74c7c97f9e19a615b8ff3c0ca06599ca501b
+            DOWNLOAD_ONLY YES
+        )
+
+        if(NOT cryptopp_SOURCE_DIR)
+            message(FATAL_ERROR "CryptoPP requested but upstream source download failed")
+        endif()
+
+        set(CRYPTOPP_SOURCE_DIR ${cryptopp_SOURCE_DIR})
+    endif()
+
+    create_cryptopp_vendor_target(${CRYPTOPP_SOURCE_DIR})
+
+    set(INCLUDE_DIRS ${INCLUDE_DIRS} ${CRYPTOPP_SOURCE_DIR} PARENT_SCOPE)
+    set(BACKEND_TEST_INCLUDE_DIRS ${BACKEND_TEST_INCLUDE_DIRS} ${CRYPTOPP_SOURCE_DIR} PARENT_SCOPE)
+    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} cryptopp_vendor PARENT_SCOPE)
+endfunction(add_cryptopp)
+
 function(add_sodium)
     set(SOURCE_FILES sodium.cpp PARENT_SCOPE)
 
@@ -203,6 +329,8 @@ elseif(CRYPTO_LIB STREQUAL "OpenSSL")
     add_openssl()
 elseif(CRYPTO_LIB STREQUAL "libsodium")
     add_sodium()
+elseif(CRYPTO_LIB STREQUAL "CryptoPP")
+    add_cryptopp()
 else()
     message(FATAL_ERROR "CRYPTO_LIB is not defined")
 endif()
@@ -228,3 +356,4 @@ add_custom_command(TARGET crypto POST_BUILD
 
 # Expose include directory to parent scope
 set(CRYPTO_INCLUDE_DIRS ${INCLUDE_DIRS} PARENT_SCOPE)
+set(CRYPTO_BACKEND_TEST_INCLUDE_DIRS ${BACKEND_TEST_INCLUDE_DIRS} PARENT_SCOPE)
