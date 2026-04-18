@@ -7,6 +7,7 @@ endif()
 function(add_blake3)
     # Use local BLAKE3 submodule (third_party/BLAKE3)
     set(BLAKE3_SOURCE_DIR ${CMAKE_SOURCE_DIR}/third_party/BLAKE3/c)
+    set(BLAKE3_INCLUDE_DIR ${BLAKE3_SOURCE_DIR})
 
     # Strip MSVC-specific C/CXX flags before entering BLAKE3 so they don't
     # leak into the MASM assembler (ml64.exe doesn't understand /Od, /EHsc, etc.)
@@ -17,16 +18,35 @@ function(add_blake3)
         set(CMAKE_CXX_FLAGS "")
     endif()
 
-    # Add BLAKE3 as subdirectory
-    add_subdirectory(${BLAKE3_SOURCE_DIR} ${CMAKE_BINARY_DIR}/blake3-build EXCLUDE_FROM_ALL)
+    # Add BLAKE3 as subdirectory when vendored, otherwise fetch it.
+    if(EXISTS ${BLAKE3_SOURCE_DIR}/CMakeLists.txt)
+        add_subdirectory(${BLAKE3_SOURCE_DIR} ${CMAKE_BINARY_DIR}/blake3-build EXCLUDE_FROM_ALL)
+    else()
+        CPMAddPackage(
+            NAME blake3
+            GITHUB_REPOSITORY BLAKE3-team/BLAKE3
+            GIT_TAG 1.8.4
+            SOURCE_SUBDIR c
+        )
+
+        set(BLAKE3_INCLUDE_DIR ${blake3_SOURCE_DIR}/c)
+    endif()
 
     if(MSVC)
         set(CMAKE_C_FLAGS "${_saved_C_FLAGS}")
         set(CMAKE_CXX_FLAGS "${_saved_CXX_FLAGS}")
     endif()
 
-    set(INCLUDE_DIRS ${INCLUDE_DIRS} ${BLAKE3_SOURCE_DIR} PARENT_SCOPE)
-    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} blake3 PARENT_SCOPE)
+    if(TARGET BLAKE3::blake3)
+        set(BLAKE3_TARGET BLAKE3::blake3)
+    elseif(TARGET blake3)
+        set(BLAKE3_TARGET blake3)
+    else()
+        message(FATAL_ERROR "BLAKE3 source is available but no BLAKE3 target was created")
+    endif()
+
+    set(INCLUDE_DIRS ${INCLUDE_DIRS} ${BLAKE3_INCLUDE_DIR} PARENT_SCOPE)
+    set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} ${BLAKE3_TARGET} PARENT_SCOPE)
 endfunction(add_blake3)
 
 function(add_botan)
@@ -138,8 +158,43 @@ function(add_openssl)
 endfunction(add_openssl)
 
 function(add_sodium)
-    message(STATUS "Welcome to pull request to add libsodium support")
-    message(FATAL_ERROR "libsodium is not supported now")
+    set(SOURCE_FILES sodium.cpp PARENT_SCOPE)
+
+    if(MSVC)
+        set(_saved_C_FLAGS "${CMAKE_C_FLAGS}")
+        set(_saved_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+        set(CMAKE_C_FLAGS "")
+        set(CMAKE_CXX_FLAGS "")
+    endif()
+
+    find_package(unofficial-sodium CONFIG QUIET)
+    if(TARGET unofficial-sodium::sodium)
+        set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} unofficial-sodium::sodium PARENT_SCOPE)
+    else()
+        set(SODIUM_DISABLE_TESTS ON CACHE BOOL "" FORCE)
+        CPMAddPackage(
+            NAME sodium
+            GITHUB_REPOSITORY robinlinden/libsodium-cmake
+            GIT_TAG efe978b574516d7708c0feeb5231cf7ab4906283
+        )
+
+        if(sodium_ADDED AND TARGET sodium AND NOT TARGET unofficial-sodium::sodium)
+            add_library(unofficial-sodium::sodium ALIAS sodium)
+        endif()
+
+        if(TARGET unofficial-sodium::sodium)
+            set(THIRD_PARTY_LIBS ${THIRD_PARTY_LIBS} unofficial-sodium::sodium PARENT_SCOPE)
+        else()
+            message(FATAL_ERROR "libsodium requested but no supported target was found. Tried unofficial-sodium config package and CPM fallback via robinlinden/libsodium-cmake.")
+        endif()
+    endif()
+
+    if(MSVC)
+        set(CMAKE_C_FLAGS "${_saved_C_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${_saved_CXX_FLAGS}")
+    endif()
+
+    message(WARNING "The libsodium backend only provides SHA256 and Ed25519 parity. AES-256-CBC/PKCS7 remains unsupported because libsodium exposes AES-256-GCM AEAD rather than CBC.")
 endfunction(add_sodium)
 
 if(CRYPTO_LIB STREQUAL "Botan")

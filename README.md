@@ -26,7 +26,7 @@ Please refer to the [release page](https://github.com/25077667/VMPilot-crypto/re
     - Options:
         - `Botan` (default)
         - `OpenSSL`
-        - `libsodium`
+        - `libsodium` (partial: SHA256 + Ed25519; AES-256-CBC/PKCS7 unsupported)
 
 - `CMAKE_LINKER`: 
     - Description: The linker. Default is `ld`. Other options are `mold`, `lld` and `gold`.
@@ -53,6 +53,13 @@ Apache License 2.0
 ## OpenSSL
 If you are using the OpenSSL in your Apple device, but stuck with the find package error,
 you could refer to https://stackoverflow.com/a/69268455 for possible solutions.
+
+## libsodium
+The libsodium backend currently supports the SHA256 and Ed25519 parts of the public API.
+`BLAKE3` remains provided by the shared `src/blake3.cpp` implementation for every backend.
+The AES wrapper API in this repo is `AES-256-CBC/PKCS7`, which libsodium does not provide;
+its AES support is limited to AES-256-GCM AEAD. As a result, the libsodium backend does not
+provide AES parity with the Botan/OpenSSL backends.
 
 ## Botan with AppleClang
 If it says something like this:
