@@ -1,11 +1,15 @@
 #include <VMPilot_crypto.hpp>
 
 #include <botan/cipher_mode.h>
+#include <botan/ed25519.h>
+#include <botan/exceptn.h>
 #include <botan/hash.h>
 #include <botan/hex.h>
+#include <botan/pubkey.h>
 
 #include <algorithm>
 #include <iterator>
+#include <span>
 
 std::vector<uint8_t> VMPilot::Crypto::Encrypt_AES_256_CBC_PKCS7(
     const std::vector<uint8_t> &data, const std::string &key) noexcept
@@ -61,4 +65,38 @@ std::vector<uint8_t> VMPilot::Crypto::SHA256(
     std::copy(hash_vec.begin(), hash_vec.end(), std::back_inserter(result));
 
     return result;
+}
+
+bool VMPilot::Crypto::Verify_Ed25519(const std::vector<uint8_t> &public_key_32,
+                                     const std::vector<uint8_t> &signature_64,
+                                     const std::string &covered_domain,
+                                     const std::vector<uint8_t> &message) noexcept
+{
+    if (public_key_32.size() != 32) return false;
+    if (signature_64.size() != 64) return false;
+    if (covered_domain.empty() || covered_domain.size() > 0xff) return false;
+
+    try {
+        const std::span<const uint8_t> pub_span{public_key_32.data(),
+                                                public_key_32.size()};
+        Botan::Ed25519_PublicKey pubkey{pub_span};
+        Botan::PK_Verifier verifier{pubkey, "Pure"};
+
+        // length_prefix(covered_domain) || message
+        const uint8_t len_byte = static_cast<uint8_t>(covered_domain.size());
+        verifier.update(&len_byte, 1);
+        verifier.update(reinterpret_cast<const uint8_t *>(covered_domain.data()),
+                        covered_domain.size());
+        if (!message.empty()) {
+            verifier.update(message.data(), message.size());
+        }
+
+        return verifier.check_signature(signature_64.data(), signature_64.size());
+    }
+    catch (const Botan::Exception &) {
+        return false;
+    }
+    catch (...) {
+        return false;
+    }
 }

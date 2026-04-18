@@ -3,7 +3,10 @@
 #include <openssl/evp.h>
 #include <openssl/sha.h>
 
+#include <cstdint>
+#include <cstring>
 #include <memory>
+#include <vector>
 
 std::vector<uint8_t> VMPilot::Crypto::Encrypt_AES_256_CBC_PKCS7(const std::vector<uint8_t> &data,
                                                                 const std::string &key) noexcept
@@ -91,4 +94,49 @@ std::vector<uint8_t> VMPilot::Crypto::SHA256(const std::vector<uint8_t> &data,
 
     result.resize(len);
     return result;
+}
+
+bool VMPilot::Crypto::Verify_Ed25519(const std::vector<uint8_t> &public_key_32,
+                                     const std::vector<uint8_t> &signature_64,
+                                     const std::string &covered_domain,
+                                     const std::vector<uint8_t> &message) noexcept
+{
+    if (public_key_32.size() != 32) return false;
+    if (signature_64.size() != 64) return false;
+    if (covered_domain.empty() || covered_domain.size() > 0xff) return false;
+
+    // Build the signed message: length_prefix(covered_domain) || message
+    std::vector<uint8_t> buf;
+    buf.reserve(1 + covered_domain.size() + message.size());
+    buf.push_back(static_cast<uint8_t>(covered_domain.size()));
+    buf.insert(buf.end(),
+               reinterpret_cast<const uint8_t *>(covered_domain.data()),
+               reinterpret_cast<const uint8_t *>(covered_domain.data()) +
+                   covered_domain.size());
+    if (!message.empty()) {
+        buf.insert(buf.end(), message.begin(), message.end());
+    }
+
+    std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> pkey(
+        EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, nullptr,
+                                    public_key_32.data(),
+                                    public_key_32.size()),
+        &EVP_PKEY_free);
+    if (pkey == nullptr) return false;
+
+    std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> ctx(
+        EVP_MD_CTX_new(), &EVP_MD_CTX_free);
+    if (ctx == nullptr) return false;
+
+    // Ed25519 uses a PureEdDSA "one-shot" interface: no hash in
+    // EVP_DigestVerifyInit, and the whole message goes to
+    // EVP_DigestVerify in a single call.
+    if (EVP_DigestVerifyInit(ctx.get(), nullptr, nullptr, nullptr,
+                             pkey.get()) != 1) {
+        return false;
+    }
+    const int rc = EVP_DigestVerify(ctx.get(),
+                                    signature_64.data(), signature_64.size(),
+                                    buf.data(), buf.size());
+    return rc == 1;
 }
