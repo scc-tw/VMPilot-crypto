@@ -41,7 +41,7 @@ function(add_botan)
     # Common configure arguments
     set(BOTAN_CONFIGURE_ARGS
         --minimized-build
-        --enable-modules=aes,sha2_64,sha2_32,cbc,hex,mode_pad
+        --enable-modules=aes,sha2_64,sha2_32,cbc,hex,mode_pad,ed25519,pubkey,asn1,pem,rng,auto_rng,system_rng
         --disable-shared-library
         --without-documentation
         --no-install-python-module
